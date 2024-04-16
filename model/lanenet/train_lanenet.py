@@ -43,6 +43,7 @@ def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device,
 
     best_model_wts = copy.deepcopy(model.state_dict())
 
+    # TODO:添加进度条
     for epoch in range(num_epochs):
         training_log['epoch'].append(epoch)
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
@@ -101,6 +102,10 @@ def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device,
                 if epoch_loss < best_loss:
                     best_loss = epoch_loss
                     best_model_wts = copy.deepcopy(model.state_dict())
+
+            # TODO:将模型保存写在此处（把在外面的剪切进来）
+
+            # TODO:绘制train和val的loss曲线
 
         print()
 
