@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+import datetime
 
 import torch
 from model.lanenet.train_lanenet import train_model
@@ -24,7 +25,11 @@ DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def train():
     args = parse_args()
-    save_path = args.save
+    # loss与模型文件保存路径
+    #获取当前时间创建当前训练目录
+    train_start_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    train_start_time = train_start_time.replace(' ', '_').replace('-', '_').replace(':', '_')
+    save_path = os.path.join(args.save, train_start_time)
     if not os.path.isdir(save_path):
         os.makedirs(save_path)
 
@@ -71,7 +76,7 @@ def train():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     print(f"{args.epochs} epochs {len(train_dataset)} training samples\n")
 
-    model, log = train_model(model, optimizer, scheduler=None, dataloaders=dataloaders, dataset_sizes=dataset_sizes,
+    model, log = train_model(model, optimizer, save_path, scheduler=None, dataloaders=dataloaders, dataset_sizes=dataset_sizes,
                              device=DEVICE, loss_type=args.loss_type, num_epochs=args.epochs)
     df = pd.DataFrame({'epoch': [], 'training_loss': [], 'val_loss': []})
     df['epoch'] = log['epoch']
@@ -82,10 +87,6 @@ def train():
     df.to_csv(train_log_save_filename, columns=['epoch', 'training_loss', 'val_loss'], header=True, index=False,
               encoding='utf-8')
     print("training log is saved: {}".format(train_log_save_filename))
-
-    model_save_filename = os.path.join(save_path, 'best_model.pth')
-    torch.save(model.state_dict(), model_save_filename)
-    print("model is saved: {}".format(model_save_filename))
 
 
 if __name__ == '__main__':

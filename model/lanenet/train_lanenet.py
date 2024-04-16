@@ -2,25 +2,27 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.optim import lr_scheduler
+import os
 import numpy as np
 import time
 from tqdm import tqdm
 import copy
 from model.lanenet.loss import DiscriminativeLoss, FocalLoss
 
-def compute_loss(net_output, binary_label, instance_label, loss_type = 'FocalLoss'):
-    k_binary = 10    #1.7
+
+def compute_loss(net_output, binary_label, instance_label, loss_type='FocalLoss'):
+    k_binary = 10  # 1.7
     k_instance = 0.3
     k_dist = 1.0
 
-    if(loss_type == 'FocalLoss'):
+    if loss_type == 'FocalLoss':
         loss_fn = FocalLoss(gamma=2, alpha=[0.25, 0.75])
-    elif(loss_type == 'CrossEntropyLoss'):
+    elif loss_type == 'CrossEntropyLoss':
         loss_fn = nn.CrossEntropyLoss()
     else:
         # print("Wrong loss type, will use the default CrossEntropyLoss")
         loss_fn = nn.CrossEntropyLoss()
-    
+
     binary_seg_logits = net_output["binary_seg_logits"]
     binary_loss = loss_fn(binary_seg_logits, binary_label)
 
@@ -37,13 +39,17 @@ def compute_loss(net_output, binary_label, instance_label, loss_type = 'FocalLos
     return total_loss, binary_loss, instance_loss, out
 
 
-def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device, loss_type='FocalLoss', num_epochs=25):
+def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_sizes, device,
+                loss_type='FocalLoss', num_epochs=25):
     since = time.time()
-    training_log = {'epoch':[], 'training_loss':[], 'val_loss':[]}
+    training_log = {'epoch': [], 'training_loss': [], 'val_loss': []}
+
+    # 设置默认最小loss
     best_loss = float("inf")
 
     best_model_wts = copy.deepcopy(model.state_dict())
 
+    # -----------开始训练-------------
     for epoch in range(num_epochs):
         # 添加进度条
         iterations = len(dataloaders)
@@ -58,7 +64,7 @@ def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device,
                 if phase == 'train':
                     model.train()  # Set model to training mode
                 else:
-                    model.eval()   # Set model to evaluate mode
+                    model.eval()  # Set model to evaluate mode
 
                 running_loss = 0.0
                 running_loss_b = 0.0
@@ -91,7 +97,7 @@ def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device,
                     running_loss_i += loss[2].item() * inputs.size(0)
 
                 if phase == 'train':
-                    if scheduler != None:
+                    if scheduler is not None:
                         scheduler.step()
 
                 epoch_loss = running_loss / dataset_sizes[phase]
@@ -106,15 +112,16 @@ def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device,
                     training_log['training_loss'].append(epoch_loss)
                 if phase == 'val':
                     training_log['val_loss'].append(epoch_loss)
+                    # 保存last model 与 best model
                     if epoch_loss < best_loss:
                         best_loss = epoch_loss
                         best_model_wts = copy.deepcopy(model.state_dict())
-
-            # TODO:将模型保存写在此处（把在外面的剪切进来）
+                        torch.save(model.state_dict(), os.path.join(save_path, 'best_model.pth'))
+                    if epoch + 1 == num_epochs:
+                        torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
+                        print("model is saved: {}".format(save_path))
 
             # TODO:绘制train和val的loss曲线
-
-        print()
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
@@ -126,6 +133,7 @@ def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device,
     # load best model weights
     model.load_state_dict(best_model_wts)
     return model, training_log
+
 
 def trans_to_cuda(variable):
     if torch.cuda.is_available():
