@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 import numpy as np
 import time
+from tqdm import tqdm
 import copy
 from model.lanenet.loss import DiscriminativeLoss, FocalLoss
 
@@ -36,72 +37,78 @@ def compute_loss(net_output, binary_label, instance_label, loss_type = 'FocalLos
     return total_loss, binary_loss, instance_loss, out
 
 
-def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device, loss_type = 'FocalLoss', num_epochs=25):
+def train_model(model, optimizer, scheduler, dataloaders, dataset_sizes, device, loss_type='FocalLoss', num_epochs=25):
     since = time.time()
     training_log = {'epoch':[], 'training_loss':[], 'val_loss':[]}
     best_loss = float("inf")
 
     best_model_wts = copy.deepcopy(model.state_dict())
 
-    # TODO:添加进度条
     for epoch in range(num_epochs):
-        training_log['epoch'].append(epoch)
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
+        # 添加进度条
+        iterations = len(dataloaders)
+        print('\n{:^15}{:^15}{:^15}{:^15}'.format('Epoch', 'Total Loss', 'Binary Loss', 'Instance Loss'))
+        with tqdm(total=iterations) as pbar_train:
+            training_log['epoch'].append(epoch)
+            # print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+            # print('-' * 10)
 
-        # Each epoch has a training and validation phase
-        for phase in ['train', 'val']:
-            if phase == 'train':
-                model.train()  # Set model to training mode
-            else:
-                model.eval()   # Set model to evaluate mode
+            # Each epoch has a training and validation phase
+            for phase in ['train', 'val']:
+                if phase == 'train':
+                    model.train()  # Set model to training mode
+                else:
+                    model.eval()   # Set model to evaluate mode
 
-            running_loss = 0.0
-            running_loss_b = 0.0
-            running_loss_i = 0.0
+                running_loss = 0.0
+                running_loss_b = 0.0
+                running_loss_i = 0.0
 
-            # Iterate over data.
-            for inputs, binarys, instances in dataloaders[phase]:
-                inputs = inputs.type(torch.FloatTensor).to(device)
-                binarys = binarys.type(torch.LongTensor).to(device)
-                instances = instances.type(torch.FloatTensor).to(device)
+                # Iterate over data.
+                for batch_idx, batch in enumerate(dataloaders[phase]):
+                    inputs, binarys, instances = batch
+                    inputs = inputs.type(torch.FloatTensor).to(device)
+                    binarys = binarys.type(torch.LongTensor).to(device)
+                    instances = instances.type(torch.FloatTensor).to(device)
 
-                # zero the parameter gradients
-                optimizer.zero_grad()
+                    # zero the parameter gradients
+                    optimizer.zero_grad()
 
-                # forward
-                # track history if only in train
-                with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    loss = compute_loss(outputs, binarys, instances, loss_type)
+                    # forward
+                    # track history if only in train
+                    with torch.set_grad_enabled(phase == 'train'):
+                        outputs = model(inputs)
+                        loss = compute_loss(outputs, binarys, instances, loss_type)
 
-                    # backward + optimize only if in training phase
-                    if phase == 'train':
-                        loss[0].backward()
-                        optimizer.step()
+                        # backward + optimize only if in training phase
+                        if phase == 'train':
+                            loss[0].backward()
+                            optimizer.step()
 
-                # statistics
-                running_loss += loss[0].item() * inputs.size(0)
-                running_loss_b += loss[1].item() * inputs.size(0)
-                running_loss_i += loss[2].item() * inputs.size(0)
+                    # statistics
+                    running_loss += loss[0].item() * inputs.size(0)
+                    running_loss_b += loss[1].item() * inputs.size(0)
+                    running_loss_i += loss[2].item() * inputs.size(0)
 
-            if phase == 'train':
-                if scheduler != None:
-                    scheduler.step()
+                if phase == 'train':
+                    if scheduler != None:
+                        scheduler.step()
 
-            epoch_loss = running_loss / dataset_sizes[phase]
-            binary_loss = running_loss_b / dataset_sizes[phase]
-            instance_loss = running_loss_i / dataset_sizes[phase]
-            print('{} Total Loss: {:.4f} Binary Loss: {:.4f} Instance Loss: {:.4f}'.format(phase, epoch_loss, binary_loss, instance_loss))
+                epoch_loss = running_loss / dataset_sizes[phase]
+                binary_loss = running_loss_b / dataset_sizes[phase]
+                instance_loss = running_loss_i / dataset_sizes[phase]
+                pbar_train.update(1)
+                pbar_train.set_description('{:^15}{:^15.4f}{:^15.4f}{:^15.4}'.format(
+                    f'{epoch + 1}/{num_epochs}', epoch_loss, binary_loss, instance_loss))
 
-            # deep copy the model
-            if phase == 'train':
-                training_log['training_loss'].append(epoch_loss)
-            if phase == 'val':
-                training_log['val_loss'].append(epoch_loss)
-                if epoch_loss < best_loss:
-                    best_loss = epoch_loss
-                    best_model_wts = copy.deepcopy(model.state_dict())
+                # deep copy the model
+                if phase == 'train':
+                    training_log['training_loss'].append(epoch_loss)
+                if phase == 'val':
+                    training_log['val_loss'].append(epoch_loss)
+                    if epoch_loss < best_loss:
+                        best_loss = epoch_loss
+                        best_model_wts = copy.deepcopy(model.state_dict())
 
             # TODO:将模型保存写在此处（把在外面的剪切进来）
 
