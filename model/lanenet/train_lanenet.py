@@ -65,7 +65,7 @@ def compute_loss(net_output, binary_label, instance_label, loss_type='FocalLoss'
     return total_loss, binary_loss, instance_loss, out
 
 
-def train_model(model, optimizer, save_path, loss_dir, scheduler, dataloaders, dataset_sizes, device,
+def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_sizes, device,
                 loss_type='FocalLoss', num_epochs=25):
     since = time.time()
     training_log = {'epoch': [], 'training_loss': [], 'val_loss': []}
@@ -77,26 +77,30 @@ def train_model(model, optimizer, save_path, loss_dir, scheduler, dataloaders, d
 
     # -----------开始训练-------------
     for epoch in range(num_epochs):
-        # 添加进度条
-        iterations = len(dataloaders)
-        print('\n{:^15}{:^15}{:^15}{:^15}'.format('Epoch', 'Total Loss', 'Binary Loss', 'Instance Loss'))
-        with tqdm(total=iterations) as pbar_train:
-            training_log['epoch'].append(epoch)
-            # print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-            # print('-' * 10)
+        training_log['epoch'].append(epoch)
 
-            # Each epoch has a training and validation phase
-            for phase in ['train', 'val']:
-                if phase == 'train':
-                    model.train()  # Set model to training mode
-                else:
-                    model.eval()  # Set model to evaluate mode
+        # Each epoch has a training and validation phase
+        for phase in ['train', 'val']:
+            if phase == 'train':
+                model.train()  # Set model to training mode
+            else:
+                model.eval()  # Set model to evaluate mode
 
-                running_loss = 0.0
-                running_loss_b = 0.0
-                running_loss_i = 0.0
+            running_loss = 0.0
+            running_loss_b = 0.0
+            running_loss_i = 0.0
 
-                # Iterate over data.
+            # Iterate over data.
+
+            # 添加进度条
+            iterations = len(dataloaders[phase])
+            if phase == 'train':
+                print('Start Train...')
+                print('\n{:^15}{:^15}{:^15}{:^15}'.format('Epoch', 'Total Loss', 'Binary Loss', 'Instance Loss'))
+            if phase == 'val':
+                print('Start validation...')
+                print('\n{:^15}{:^15}'.format('Epoch', 'Loss'))
+            with tqdm(total=iterations) as pbar_train:
                 for batch_idx, batch in enumerate(dataloaders[phase]):
                     inputs, binarys, instances = batch
                     inputs = inputs.type(torch.FloatTensor).to(device)
@@ -129,25 +133,30 @@ def train_model(model, optimizer, save_path, loss_dir, scheduler, dataloaders, d
                 epoch_loss = running_loss / dataset_sizes[phase]
                 binary_loss = running_loss_b / dataset_sizes[phase]
                 instance_loss = running_loss_i / dataset_sizes[phase]
-                pbar_train.update(1)
-                pbar_train.set_description('{:^15}{:^15.4f}{:^15.4f}{:^15.4}'.format(
-                    f'{epoch + 1}/{num_epochs}', epoch_loss, binary_loss, instance_loss))
 
                 # deep copy the model
+                pbar_train.update(1)
                 if phase == 'train':
+                    pbar_train.set_description('{:^15}{:^15.4f}{:^15.4f}{:^15.4}'.format(
+                        f'{epoch + 1}/{num_epochs}', epoch_loss, binary_loss, instance_loss))
                     training_log['training_loss'].append(epoch_loss)
                 if phase == 'val':
+                    pbar_train.set_description('{:^15}{:^15.4f}'.format(
+                        f'{epoch + 1}/{num_epochs}', epoch_loss))
                     training_log['val_loss'].append(epoch_loss)
                     # 保存last model 与 best model
                     if epoch_loss < best_loss:
                         best_loss = epoch_loss
                         best_model_wts = copy.deepcopy(model.state_dict())
                         torch.save(model.state_dict(), os.path.join(save_path, 'best_model.pth'))
-                    if epoch + 1 == num_epochs:
-                        torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
-                        print("model is saved: {}".format(save_path))
 
-    drawing_loss(loss_dir, training_log['training_loss'], training_log['val_loss'])
+                    torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
+                    print("model is saved: {}".format(save_path))
+
+                print()
+
+    # loss绘制
+    drawing_loss(save_path, training_log['training_loss'], training_log['val_loss'])
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(

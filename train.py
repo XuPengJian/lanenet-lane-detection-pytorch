@@ -27,15 +27,10 @@ def train():
     args = parse_args()
     # loss与模型文件保存路径
     # 获取当前时间创建当前训练目录
-    train_start_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    train_start_time = train_start_time.replace(' ', '_').replace('-', '_').replace(':', '_')
+    train_start_time = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     save_path = os.path.join(args.save, train_start_time)
     if not os.path.isdir(save_path):
         os.makedirs(save_path)
-    # 创建保存loss相关文件的文件夹
-    loss_dir = os.path.join(save_path, 'loss')
-    if not os.path.isdir(loss_dir):
-        os.makedirs(loss_dir)
 
     train_dataset_file = os.path.join(args.dataset, 'train.txt')
     val_dataset_file = os.path.join(args.dataset, 'val.txt')
@@ -80,14 +75,14 @@ def train():
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     print(f"{args.epochs} epochs {len(train_dataset)} training samples\n")
 
-    model, log = train_model(model, optimizer, save_path, loss_dir, scheduler=None, dataloaders=dataloaders, dataset_sizes=dataset_sizes,
+    model, log = train_model(model, optimizer, save_path, scheduler=None, dataloaders=dataloaders, dataset_sizes=dataset_sizes,
                              device=DEVICE, loss_type=args.loss_type, num_epochs=args.epochs)
     df = pd.DataFrame({'epoch': [], 'training_loss': [], 'val_loss': []})
     df['epoch'] = log['epoch']
     df['training_loss'] = log['training_loss']
     df['val_loss'] = log['val_loss']
 
-    train_log_save_filename = os.path.join(loss_dir, 'training_log.csv')
+    train_log_save_filename = os.path.join(save_path, 'training_log.csv')
     df.to_csv(train_log_save_filename, columns=['epoch', 'training_loss', 'val_loss'], header=True, index=False,
               encoding='utf-8')
     print("training log is saved: {}".format(train_log_save_filename))
