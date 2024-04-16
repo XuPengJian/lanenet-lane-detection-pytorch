@@ -7,7 +7,33 @@ import numpy as np
 import time
 from tqdm import tqdm
 import copy
+from matplotlib import pyplot as plt
+import scipy.signal
 from model.lanenet.loss import DiscriminativeLoss, FocalLoss
+
+
+def drawing_loss(log_dir, train_loss, val_loss):
+
+    # 绘制loss的曲线
+    iters = range(1, len(train_loss) + 1)
+
+    # 创建画布
+    plt.figure()
+    # 绘制loss和val_loss
+    plt.plot(iters, train_loss, 'red', linewidth=2, label='train loss')
+    plt.plot(iters, val_loss, 'blue', linewidth=2, label='val loss')
+
+    # 绘制其他的一些细节
+    plt.grid(True)  # 是否带背景网格
+    plt.xlabel('Epoch')  # x轴变量名称
+    plt.ylabel('Loss')  # y轴变量名称
+    plt.legend(loc="upper right")  # 在右上角绘制图例标签
+
+    # 保存图片到所在路径
+    plt.savefig(os.path.join(log_dir, "epoch_loss.png"))
+
+    plt.cla()  # 清除axes，即当前 figure 中的活动的axes，但其他axes保持不变
+    plt.close("all")  # 关闭 window，如果没有指定，则指当前 window。
 
 
 def compute_loss(net_output, binary_label, instance_label, loss_type='FocalLoss'):
@@ -39,7 +65,7 @@ def compute_loss(net_output, binary_label, instance_label, loss_type='FocalLoss'
     return total_loss, binary_loss, instance_loss, out
 
 
-def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_sizes, device,
+def train_model(model, optimizer, save_path, loss_dir, scheduler, dataloaders, dataset_sizes, device,
                 loss_type='FocalLoss', num_epochs=25):
     since = time.time()
     training_log = {'epoch': [], 'training_loss': [], 'val_loss': []}
@@ -121,7 +147,7 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
                         torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
                         print("model is saved: {}".format(save_path))
 
-            # TODO:绘制train和val的loss曲线
+    drawing_loss(loss_dir, training_log['training_loss'], training_log['val_loss'])
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
