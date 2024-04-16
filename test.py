@@ -24,7 +24,7 @@ def load_test_data(img_path, transform):
 # TODO:将推理脚本改为输入读取文件夹，读取文件夹里的所有的图片进行推理，这样的参数需要放在args里（相当于给后端预留调用接口）
 # TODO:读取文件夹图片推理的过程也加上进度条
 
-def test():
+def predict():
     if os.path.exists('test_output') == False:
         os.mkdir('test_output')
     args = parse_args()
@@ -62,4 +62,4 @@ def test():
 
 
 if __name__ == "__main__":
-    test()
+    predict()
