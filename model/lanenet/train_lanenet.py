@@ -13,7 +13,6 @@ from model.lanenet.loss import DiscriminativeLoss, FocalLoss
 
 
 def drawing_loss(log_dir, train_loss, val_loss):
-
     # 绘制loss的曲线
     iters = range(1, len(train_loss) + 1)
 
@@ -126,24 +125,27 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
                     running_loss_b += loss[1].item() * inputs.size(0)
                     running_loss_i += loss[2].item() * inputs.size(0)
 
+                    # 更新进度条
+                    epoch_loss = running_loss / (batch_idx + 1)
+                    binary_loss = running_loss_b / (batch_idx + 1)
+                    instance_loss = running_loss_i / (batch_idx + 1)
+
+                    if phase == 'train':
+                        pbar_train.set_description('{:^15}{:^15.4f}{:^15.4f}{:^15.4}'.format(
+                            f'{epoch + 1}/{num_epochs}', epoch_loss, binary_loss, instance_loss))
+                        training_log['training_loss'].append(epoch_loss)
+
+                    if phase == 'val':
+                        pbar_train.set_description('{:^15}{:^15.4f}'.format(
+                            f'{epoch + 1}/{num_epochs}', epoch_loss))
+                        training_log['val_loss'].append(epoch_loss)
+
+                    pbar_train.update(1)
+
                 if phase == 'train':
                     if scheduler is not None:
                         scheduler.step()
 
-                epoch_loss = running_loss / dataset_sizes[phase]
-                binary_loss = running_loss_b / dataset_sizes[phase]
-                instance_loss = running_loss_i / dataset_sizes[phase]
-
-                # deep copy the model
-                pbar_train.update(1)
-                if phase == 'train':
-                    pbar_train.set_description('{:^15}{:^15.4f}{:^15.4f}{:^15.4}'.format(
-                        f'{epoch + 1}/{num_epochs}', epoch_loss, binary_loss, instance_loss))
-                    training_log['training_loss'].append(epoch_loss)
-                if phase == 'val':
-                    pbar_train.set_description('{:^15}{:^15.4f}'.format(
-                        f'{epoch + 1}/{num_epochs}', epoch_loss))
-                    training_log['val_loss'].append(epoch_loss)
                     # 保存last model 与 best model
                     if epoch_loss < best_loss:
                         best_loss = epoch_loss
@@ -151,9 +153,7 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
                         torch.save(model.state_dict(), os.path.join(save_path, 'best_model.pth'))
 
                     torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
-                    print("model is saved: {}".format(save_path))
-
-                print()
+                    # print("model is saved: {}".format(save_path))
 
     # loss绘制
     drawing_loss(save_path, training_log['training_loss'], training_log['val_loss'])
