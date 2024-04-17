@@ -32,7 +32,7 @@ def predict():
     # 图片文件路径列表
     files = os.listdir(img_fold)
     # 生成预测图片的文件夹保存路径
-    output_dir = os.path.join(img_fold, 'test_output')
+    output_dir = args.save
     if os.path.exists(output_dir) == False:
         os.mkdir(output_dir)
     resize_height = args.height
