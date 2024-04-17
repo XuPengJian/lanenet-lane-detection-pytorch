@@ -28,9 +28,9 @@ def load_test_data(img_path, transform):
 
 def predict():
     args = parse_args()
-    img_fold = args.img_fold
+    img_folder = args.img_folder
     # 图片文件路径列表
-    files = os.listdir(img_fold)
+    files = os.listdir(img_folder)
     # 生成预测图片的文件夹保存路径
     output_dir = args.save
     if os.path.exists(output_dir) == False:
@@ -54,7 +54,7 @@ def predict():
     # 使用 tqdm 包裹 files，显示进度条
     with tqdm(total=len(files), desc="Processing files", unit="file", bar_format="{l_bar}{bar:40}{r_bar}") as pbar:
         for path in files:
-            img_path = os.path.join(img_fold, path)
+            img_path = os.path.join(img_folder, path)
 
             dummy_input = load_test_data(img_path, data_transform).to(DEVICE)
             dummy_input = torch.unsqueeze(dummy_input, dim=0)
