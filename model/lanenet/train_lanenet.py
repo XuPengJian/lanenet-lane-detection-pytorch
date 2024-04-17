@@ -162,8 +162,8 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
                     torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
                     # print("model is saved: {}".format(save_path))
 
-    # loss绘制
-    drawing_loss(save_path, training_log['training_loss'], training_log['val_loss'])
+        # loss绘制
+        drawing_loss(save_path, training_log['training_loss'], training_log['val_loss'])
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(
