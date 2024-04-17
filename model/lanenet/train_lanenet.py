@@ -79,6 +79,7 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
         training_log['epoch'].append(epoch)
 
         # Each epoch has a training and validation phase
+        # 循环训练与验证
         for phase in ['train', 'val']:
             if phase == 'train':
                 model.train()  # Set model to training mode
@@ -100,6 +101,8 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
                 print('Start validation...')
                 print('\n{:^15}{:^15}'.format('Epoch', 'Loss'))
             with tqdm(total=iterations) as pbar_train:
+
+                # 遍历每个batch
                 for batch_idx, batch in enumerate(dataloaders[phase]):
                     inputs, binarys, instances = batch
                     inputs = inputs.type(torch.FloatTensor).to(device)
@@ -133,25 +136,29 @@ def train_model(model, optimizer, save_path, scheduler, dataloaders, dataset_siz
                     if phase == 'train':
                         pbar_train.set_description('{:^15}{:^15.4f}{:^15.4f}{:^15.4}'.format(
                             f'{epoch + 1}/{num_epochs}', epoch_loss, binary_loss, instance_loss))
-                        training_log['training_loss'].append(epoch_loss)
 
                     if phase == 'val':
                         pbar_train.set_description('{:^15}{:^15.4f}'.format(
                             f'{epoch + 1}/{num_epochs}', epoch_loss))
-                        training_log['val_loss'].append(epoch_loss)
 
                     pbar_train.update(1)
 
                 if phase == 'train':
+                    # 更新写在csv里的train_loss列表
+                    training_log['training_loss'].append(epoch_loss)
                     if scheduler is not None:
                         scheduler.step()
 
-                    # 保存last model 与 best model
+                if phase == 'val':
+                    # 更新写在csv里的val_loss列表
+                    training_log['val_loss'].append(epoch_loss)
+
+                    # best_model
                     if epoch_loss < best_loss:
                         best_loss = epoch_loss
                         best_model_wts = copy.deepcopy(model.state_dict())
                         torch.save(model.state_dict(), os.path.join(save_path, 'best_model.pth'))
-
+                    # 保存last_model
                     torch.save(model.state_dict(), os.path.join(save_path, 'last_model.pth'))
                     # print("model is saved: {}".format(save_path))
 
